@@ -195,6 +195,7 @@ var ST=["In progress","","Ready for pickup","Collected"];
 function dueAt(o){if(!o.due)return null;var p=o.due.split("-"),t=(o.time||"00:00").split(":");return new Date(+p[0],+p[1]-1,+p[2],+t[0]||0,+t[1]||0)}
 function eff(o){if(o.status===3)return 3;if(o.status===2)return 2;var d=dueAt(o);return d&&d<=new Date()?2:0}
 function tm(t){if(!t)return"";var a=t.split(":"),h=+a[0];return (h%12||12)+":"+a[1]+(h<12?" AM":" PM")}
+function pf(p){var d=String(p||"").replace(/\D/g,"");return d.length===11?d.slice(0,4)+" "+d.slice(4,7)+" "+d.slice(7):(p||"")}
 function fd(s){if(!s)return"";var p=s.split("-");return new Date(+p[0],+p[1]-1,+p[2]).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"})}
 function load(){try{var r=localStorage.getItem("cleantrack");if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}}
 function save(){try{localStorage.setItem("cleantrack",JSON.stringify(S))}catch(e){}}
@@ -286,9 +287,9 @@ function calUrl(o){var a=o.due.replace(/-/g,""),p=o.due.split("-"),n=new Date(+p
 var det="Ticket #"+o.id+"\n"+o.items.map(function(c){return c.q+" "+c.n}).join(", ")+"\nTotal "+N(o.total)+(o.total>o.paid?", balance "+N(o.total-o.paid):", paid")+(o.phone?"\nPhone: "+o.phone:"");
 return "https://calendar.google.com/calendar/render?action=TEMPLATE&text="+encodeURIComponent(o.name+": clothes ready")+"&dates="+a+"/"+e+"&details="+encodeURIComponent(det)}
 $("q").oninput=renderOrders;
-$("exp").onclick=function(){var rows=[["Ticket","Date","Customer","Phone","Items","Total","Paid","Status","Due","Pickup time"]].concat(S.orders.slice().sort(function(a,b){return a.id-b.id}).map(function(o){return[o.id,o.date.slice(0,10),o.name,o.phone,o.items.map(function(c){return c.q+" "+c.n}).join("; "),o.total,o.paid,ST[eff(o)],o.due,o.time||""]}));
+$("exp").onclick=function(){var rows=[["Ticket","Date","Customer","Phone","Items","Total","Paid","Status","Due","Pickup time"]].concat(S.orders.slice().sort(function(a,b){return a.id-b.id}).map(function(o){return[o.id,o.date.slice(0,10),o.name,pf(o.phone),o.items.map(function(c){return c.q+" "+c.n}).join("; "),o.total,o.paid,ST[eff(o)],o.due,tm(o.time)]}));
 var csv=rows.map(function(r){return r.map(function(v){return '"'+String(v==null?"":v).replace(/"/g,'""')+'"'}).join(",")}).join("\n");
-var a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download="orders.csv";document.body.appendChild(a);a.click();a.remove()};
+var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));a.download="orders.csv";document.body.appendChild(a);a.click();a.remove()};
 var WA_NUMBER="2347038724718";
 var APP_URL=location.href.split("#")[0].split("?")[0].replace(/app\.html$/,""),SHARE_MSG="Try Dhenlux, a simple app for dry-cleaning shops. Log orders, track pickups and message customers on WhatsApp: ";
 $("shm").textContent=APP_URL;
