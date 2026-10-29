@@ -196,6 +196,7 @@ function dueAt(o){if(!o.due)return null;var p=o.due.split("-"),t=(o.time||"00:00
 function eff(o){if(o.status===3)return 3;if(o.status===2)return 2;var d=dueAt(o);return d&&d<=new Date()?2:0}
 function tm(t){if(!t)return"";var a=t.split(":"),h=+a[0];return (h%12||12)+":"+a[1]+(h<12?" AM":" PM")}
 function pf(p){var d=String(p||"").replace(/\D/g,"");return d.length===11?d.slice(0,4)+" "+d.slice(4,7)+" "+d.slice(7):(p||"")}
+function nextId(){var u={};S.orders.forEach(function(o){u[o.id]=1});var i=1;while(u[i])i++;return i}
 function fd(s){if(!s)return"";var p=s.split("-");return new Date(+p[0],+p[1]-1,+p[2]).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"})}
 function load(){try{var r=localStorage.getItem("cleantrack");if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}}
 function save(){try{localStorage.setItem("cleantrack",JSON.stringify(S))}catch(e){}}
@@ -218,7 +219,7 @@ $("save").onclick=function(){var name=$("cn").value.trim();
 if(!name){alert("Please enter the customer’s name.");return}
 if(!cart.length){alert("Add at least one item.");return}
 var total=cart.reduce(function(a,c){return a+c.q*c.p},0),paid=Math.min(total,Math.max(0,parseInt($("dp").value.replace(/\D/g,""))||0));
-var o={id:S.next++,name:name,phone:$("cp").value.trim(),items:cart.slice(),total:total,paid:paid,due:$("due").value,time:$("tm").value||"",notes:$("nt").value.trim(),status:0,date:new Date().toISOString()};
+var o={id:nextId(),name:name,phone:$("cp").value.trim(),items:cart.slice(),total:total,paid:paid,due:$("due").value,time:$("tm").value||"",notes:$("nt").value.trim(),status:0,date:new Date().toISOString()};
 S.orders.unshift(o);save();cart=[];["cn","cp","nt","due"].forEach(function(i){$(i).value=""});$("dp").value=0;setDue();renderCart();
 alert("Order saved. Ticket no. #"+o.id+" – write it on the tag.");tab("orders")};
 
