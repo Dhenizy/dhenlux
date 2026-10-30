@@ -52,6 +52,11 @@ label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
 a.wa{display:inline-block;text-decoration:none;border:1px solid var(--okc);color:var(--okc);border-radius:10px;padding:6px 10px;font-size:14px}
 .ck{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:16px;color:var(--tx)}
 .ck input{width:20px;height:20px;padding:0;flex:none}
+#calp{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:none;align-items:flex-end;justify-content:center}
+#calp.on{display:flex}
+#calp .box{background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:16px 16px 0 0;padding:16px;max-width:560px;width:100%;max-height:92vh;overflow:auto}
+#calp .lk{display:inline-block;text-decoration:none;border:1px solid var(--bd);border-radius:10px;padding:6px 10px;color:var(--tx);font-size:14px;margin-top:4px}
+#calp ol{padding-left:20px;margin:8px 0}#calp li{margin-bottom:8px;font-size:15px}
 @media print{header,nav,.stats,.chips,button{display:none}}
 
 #home{font-size:17px;line-height:1.5}
@@ -76,6 +81,7 @@ a.wa{display:inline-block;text-decoration:none;border:1px solid var(--okc);color
 <body>
 <div id="offl" style="display:none;position:sticky;top:0;z-index:50;background:#b45309;color:#fff;text-align:center;font-size:14px;padding:6px 10px">You are offline. Orders still save on this phone. WhatsApp and calendar need internet.</div>
 
+<div id="calp"><div class="box" id="calbox"></div></div>
 <div id="home">
 <div class="w"><nav><b><svg width="32" height="32" viewBox="0 0 100 100" style="vertical-align:-8px;margin-right:6px" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#0b7a75"/><g fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M50 30v-5a6 6 0 1 0-6-6"/><path d="M50 30 28 46q-3 3 1 3h42q4 0 1-3z"/><path d="M56 60v24h17"/><path d="M26 60h6a12 12 0 0 1 0 24h-6z"/></g></svg>Dhenlux</b><span style="display:flex;gap:8px;align-items:center"><button type="button" class="btn o instb" style="display:none;font:inherit;cursor:pointer">📲 Install</button><a class="btn" href="#app">Open app</a></span></nav></div>
 <section class="hero"><div class="w">
@@ -196,6 +202,7 @@ function dueAt(o){if(!o.due)return null;var p=o.due.split("-"),t=(o.time||"00:00
 function eff(o){if(o.status===3)return 3;if(o.status===2)return 2;var d=dueAt(o);return d&&d<=new Date()?2:0}
 function tm(t){if(!t)return"";var a=t.split(":"),h=+a[0];return (h%12||12)+":"+a[1]+(h<12?" AM":" PM")}
 function pf(p){var d=String(p||"").replace(/\D/g,"");return d.length===11?d.slice(0,4)+" "+d.slice(4,7)+" "+d.slice(7):(p||"")}
+function renumber(){var s=S.orders.slice().sort(function(a,b){return a.id-b.id});s.forEach(function(o,i){o.id=i+1});S.next=S.orders.length+1}
 function nextId(){var u={};S.orders.forEach(function(o){u[o.id]=1});var i=1;while(u[i])i++;return i}
 function fd(s){if(!s)return"";var p=s.split("-");return new Date(+p[0],+p[1]-1,+p[2]).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"})}
 function load(){try{var r=localStorage.getItem("cleantrack");if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}}
@@ -249,14 +256,16 @@ return '<div class="card"><div class="row sp"><b>#'+o.id+" · "+esc(o.name)+'</b
 +(o.status<3?'<button class="sm" data-x="'+o.id+'">⏳ Extend date</button>':'')+(o.due&&o.status<3?'<button class="sm" data-c="'+o.id+'">📅 Add to calendar</button>':'')+'<button class="sm del" data-d="'+o.id+'">Delete</button></div>'+extForm(o)+'</div>'}).join(""):'<div class="empty">No orders here yet.<br>Tap “+ New order” to log your first one.</div>');
 document.querySelectorAll("[data-w]").forEach(function(b){b.addEventListener("click",function(){var o=S.orders.find(function(x){return x.id==b.dataset.w});o.notified=true;save();setTimeout(renderOrders,400)})});
 document.querySelectorAll("[data-n]").forEach(function(b){b.onclick=function(){var o=S.orders.find(function(x){return x.id==b.dataset.n});if(!confirm("Mark as collected"+(o.total>o.paid?" and fully paid":"")+"?"))return;o.status=3;o.paid=o.total;save();render()}});
-document.querySelectorAll("[data-c]").forEach(function(b){b.onclick=function(){var o=S.orders.find(function(x){return x.id==b.dataset.c});window.open(calUrl(o),"_blank")}});
+document.querySelectorAll("[data-c]").forEach(function(b){b.onclick=function(){var o=S.orders.find(function(x){return x.id==b.dataset.c});openCal(o)}});
 document.querySelectorAll("[data-x]").forEach(function(b){b.onclick=function(){extOpen=+b.dataset.x;renderOrders()}});
 document.querySelectorAll("[data-xc]").forEach(function(b){b.onclick=function(){extOpen=null;renderOrders()}});
 document.querySelectorAll("[data-xs],[data-xw]").forEach(function(b){b.onclick=function(){var id=+(b.dataset.xs||b.dataset.xw),o=S.orders.find(function(x){return x.id===id}),nd=$("e_d").value;
 if(!nd){alert("Please pick the new pickup date.");return}
 o.ext=o.ext||[];var r={from:o.due,to:nd,reason:$("e_r").value,note:$("e_n").value.trim(),at:new Date().toISOString()};o.ext.push(r);o.due=nd;r.time=$("e_t").value||o.time||"";o.time=r.time;o.notified=false;save();extOpen=null;renderOrders();
 if(b.dataset.xw){var l=extLink(o,r);if(l)window.open(l,"_blank");else alert("No phone number saved for this customer.")}}});
-document.querySelectorAll("[data-d]").forEach(function(b){b.onclick=function(){if(confirm("Delete this order?")){S.orders=S.orders.filter(function(x){return x.id!=b.dataset.d});save();render()}}});
+document.querySelectorAll("[data-d]").forEach(function(b){b.onclick=function(){var id=+b.dataset.d,later=S.orders.filter(function(x){return x.id>id}).length;
+if(!confirm("Delete order #"+id+"?"+(later?" The "+later+" later order"+(later>1?"s":"")+" will move up one number, so tickets already given to those customers will no longer match.":"")))return;
+S.orders=S.orders.filter(function(x){return x.id!==id});renumber();extOpen=null;save();render()}});
 $("s1").textContent=S.orders.filter(function(o){return eff(o)===0}).length;
 $("s2").textContent=S.orders.filter(function(o){return eff(o)===2}).length;
 $("s3").textContent=N(S.orders.reduce(function(a,o){return a+(o.total-o.paid)},0))}
@@ -284,9 +293,45 @@ return '<div style="border-top:1px solid var(--bd);margin-top:10px;padding-top:6
 function extLink(o,r){var p=o.phone.replace(/\D/g,"");if(!p)return"";if(p[0]==="0")p="234"+p.slice(1);
 var m="Hello "+o.name+", we are sorry. Your clothes (ticket #"+o.id+") will not be ready on "+r.from+" because of this: "+r.reason.toLowerCase()+(r.note?" ("+r.note+")":"")+". The new pickup date is "+r.to+(r.time?" at "+tm(r.time):"")+". Thank you for your patience. "+(S.store||"");
 return "https://wa.me/"+p+"?text="+encodeURIComponent(m)}
-function calUrl(o){var a=o.due.replace(/-/g,""),p=o.due.split("-"),n=new Date(+p[0],+p[1]-1,+p[2]+1),e=n.getFullYear()+("0"+(n.getMonth()+1)).slice(-2)+("0"+n.getDate()).slice(-2);
-var det="Ticket #"+o.id+"\n"+o.items.map(function(c){return c.q+" "+c.n}).join(", ")+"\nTotal "+N(o.total)+(o.total>o.paid?", balance "+N(o.total-o.paid):", paid")+(o.phone?"\nPhone: "+o.phone:"");
-return "https://calendar.google.com/calendar/render?action=TEMPLATE&text="+encodeURIComponent(o.name+": clothes ready")+"&dates="+a+"/"+e+"&details="+encodeURIComponent(det)}
+function p2(n){return ("0"+n).slice(-2)}
+function ymd(d){return d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())}
+function calTimes(d,t,all){var p=d.split("-"),a=d.replace(/-/g,"");
+if(all){return[a,ymd(new Date(+p[0],+p[1]-1,+p[2]+1))]}
+var q=(t||"17:00").split(":"),en=new Date(+p[0],+p[1]-1,+p[2],+q[0]+1,+q[1]);
+return[a+"T"+p2(q[0])+p2(q[1])+"00",ymd(en)+"T"+p2(en.getHours())+p2(en.getMinutes())+"00"]}
+function calDesc(o,t){return o.items.map(function(c){return c.q+" "+c.n}).join(", ")+"\nTotal "+N(o.total)+(o.total>o.paid?", balance "+N(o.total-o.paid):", paid")+(o.phone?"\nPhone: "+o.phone:"")+(t?"\nPickup time: "+tm(t):"")}
+function calUrl(o,d,t,all){var s=calTimes(d||o.due,t,all);
+return "https://calendar.google.com/calendar/render?action=TEMPLATE&text="+encodeURIComponent(o.name+": clothes ready")+"&dates="+s[0]+"/"+s[1]+"&details="+encodeURIComponent(calDesc(o,t))}
+function icsEsc(s){return String(s).replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\n/g,"\\n")}
+function fold(l){var o="";while(l.length>60){o+=l.slice(0,60)+"\r\n ";l=l.slice(60)}return o+l}
+function icsFile(o,d,t,all){var s=calTimes(d,t,all),title=o.name+": clothes ready",desc=calDesc(o,t),st=new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d+/,"");
+var L=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Dhenlux//EN","CALSCALE:GREGORIAN","METHOD:PUBLISH","X-WR-CALNAME:Dry Cleaning Pickups","BEGIN:VEVENT","UID:dhenlux-"+o.id+"-"+Date.now()+"@dhenlux","DTSTAMP:"+st];
+if(all){L.push("DTSTART;VALUE=DATE:"+s[0],"DTEND;VALUE=DATE:"+s[1])}else{L.push("DTSTART:"+s[0],"DTEND:"+s[1])}
+L.push("SUMMARY:"+icsEsc(title),"DESCRIPTION:"+icsEsc(desc));
+(all?["-P2DT15H","-P1DT15H","-PT15H"]:["-P3D","-P2D","-P1D"]).forEach(function(tr){
+L.push("BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:"+icsEsc(title),"TRIGGER:"+tr,"END:VALARM","BEGIN:VALARM","ACTION:EMAIL","SUMMARY:"+icsEsc(title),"DESCRIPTION:"+icsEsc(desc),"TRIGGER:"+tr,"END:VALARM")});
+L.push("END:VEVENT","END:VCALENDAR");return L.map(fold).join("\r\n")}
+function closeCal(){$("calp").className=""}
+function openCal(o){var done=!!S.calSetup,lk=function(u,t){return '<a class="lk" target="_blank" rel="noopener" href="'+u+'">'+t+'</a>'};
+$("calbox").innerHTML='<div class="row sp"><b style="font-size:18px">Add to calendar</b><button class="sm" id="cx">✕</button></div>'
++'<div class="mut" style="margin:4px 0 6px">'+esc(o.name)+': clothes ready</div>'
++'<label>Pickup date</label><input id="cd" type="date" value="'+esc(o.due||"")+'">'
++'<label>Pickup time</label><input id="ctm" type="time" value="'+esc(o.time||"17:00")+'">'
++'<label>Event type</label><select id="ck"><option value="all">All-day event (uses your all-day reminders)</option><option value="timed">At the pickup time (uses your timed-event reminders)</option></select>'
++'<div class="row" style="margin-top:12px;flex-wrap:wrap"><button class="sm pri" id="cg">Open Google Calendar</button><button class="sm" id="ci">Download file with reminders</button></div>'
++'<div class="mut" style="margin-top:8px;font-size:13px">The file adds reminders 3, 2 and 1 day before, by notification and by email. Samsung and Apple calendars usually keep them. Google Calendar may ignore them and use its own settings.</div>'
++'<div style="margin-top:14px;border-top:1px solid var(--bd);padding-top:10px"><b>First-time setup</b> '+(done?'<span class="badge">done</span>':'')+'</div>'
++'<ol><li>Create a calendar called “Dry Cleaning Pickups”.<br>'+lk("https://calendar.google.com/calendar/r/settings/createcalendar","Open: create calendar")+'</li>'
++'<li>Open that calendar’s settings. Set both “Event notifications” and “All-day event notifications” to 3 days, 2 days and 1 day before. Add one notification and one email for each. Email reminders still arrive when Battery saver is on.<br>'+lk("https://calendar.google.com/calendar/r/settings","Open: calendar settings")+'</li>'
++'<li>On your phone: Settings, Apps, Calendar, Battery, then choose Unrestricted. Turn Battery saver off and allow Alarms &amp; reminders.</li>'
++'<li>When Google Calendar opens, choose “Dry Cleaning Pickups” before you save.</li></ol>'
++'<label class="ck"><input type="checkbox" id="cs"'+(done?' checked':'')+'>I have done the setup</label>';
+$("calp").className="on";
+var vals=function(){var d=$("cd").value;if(!d){alert("Please pick the pickup date.");return null}return[d,$("ctm").value||"17:00",$("ck").value==="all"]};
+$("cx").onclick=closeCal;$("calp").onclick=function(e){if(e.target===$("calp"))closeCal()};
+$("cs").onchange=function(){S.calSetup=$("cs").checked;save()};
+$("cg").onclick=function(){var v=vals();if(v)window.open(calUrl(o,v[0],v[1],v[2]),"_blank")};
+$("ci").onclick=function(){var v=vals();if(!v)return;var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([icsFile(o,v[0],v[1],v[2])],{type:"text/calendar;charset=utf-8"}));a.download="dhenlux-"+o.name.replace(/\W+/g,"-")+".ics";document.body.appendChild(a);a.click();a.remove()}}
 $("q").oninput=renderOrders;
 $("exp").onclick=function(){var rows=[["Ticket","Date","Customer","Phone","Items","Total","Paid","Status","Due","Pickup time"]].concat(S.orders.slice().sort(function(a,b){return a.id-b.id}).map(function(o){return[o.id,o.date.slice(0,10),o.name,pf(o.phone),o.items.map(function(c){return c.q+" "+c.n}).join("; "),o.total,o.paid,ST[eff(o)],o.due,tm(o.time)]}));
 var csv=rows.map(function(r){return r.map(function(v){return '"'+String(v==null?"":v).replace(/"/g,'""')+'"'}).join(",")}).join("\n");
