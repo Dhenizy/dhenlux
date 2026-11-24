@@ -150,6 +150,8 @@ a.wa{display:inline-block;text-decoration:none;border:1px solid var(--okc);color
 <label>Account name</label><input id="b_nm" placeholder="e.g. Shine Dry Cleaners Ltd">
 <label>How many days do you usually take to finish an order?</label><div class="mut" style="margin-bottom:4px">New orders will start with a pickup date this many days from today. You can still change it on any order.</div><input id="td" type="number" min="0" value="2">
 <div style="margin-top:18px"><b>📅 Pickup reminders</b></div><div class="mut">In Google Calendar, create a calendar called “Dry Cleaning Pickups”. In its settings, under “All-day event notifications”, add 3 days, 2 days and 1 day before (choose notification, email, or both). Then tap “Add to calendar” on any order and pick that calendar.</div>
+<div style="margin-top:18px"><b>📲 Lock-screen reminders</b></div><div class="mut">Get a notification on your phone the day before a pickup and at the pickup time, even when the app is closed. It shows as a normal notification and does not ring like an alarm. Only the order number and pickup time are sent to our server, never customer names or phone numbers. On an iPhone, add Dhenlux to your Home Screen first.</div>
+<div class="row" style="margin-top:8px;flex-wrap:wrap"><button class="sm" id="pushBtn">📲 Turn on lock-screen reminders</button><button class="sm" id="pushT" style="display:none">🔔 Send a test reminder</button></div>
 <div style="margin-top:18px"><b>💾 Backup your orders</b></div><div class="mut">CSV is a simple spreadsheet file. This button saves all your orders into one, and you can open it in Excel or Google Sheets. Download it often, because if your phone or browser data is cleared, the orders in this app are lost.</div><button class="sm" id="exp" style="margin-top:10px">Download all orders (CSV)</button></div>
 <div class="card"><b>📤 Share this app</b><div class="mut">Send the app link to other shop owners.</div>
 <div class="row" style="margin-top:10px;flex-wrap:wrap"><button class="sm pri" id="shw">Share on WhatsApp</button><button class="sm pri" id="sht">Share on Telegram</button><button class="sm" id="shc">Copy link</button></div>
@@ -206,7 +208,7 @@ function renumber(){var s=S.orders.slice().sort(function(a,b){return a.id-b.id})
 function nextId(){var u={};S.orders.forEach(function(o){u[o.id]=1});var i=1;while(u[i])i++;return i}
 function fd(s){if(!s)return"";var p=s.split("-");return new Date(+p[0],+p[1]-1,+p[2]).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"})}
 function load(){try{var r=localStorage.getItem("cleantrack");if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}}
-function save(){try{localStorage.setItem("cleantrack",JSON.stringify(S))}catch(e){}}
+function save(){try{localStorage.setItem("cleantrack",JSON.stringify(S))}catch(e){}if(window.pushQueue)pushQueue()}
 function $(i){return document.getElementById(i)}
 function N(v){return "₦"+Number(v||0).toLocaleString("en-NG")}
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
@@ -347,6 +349,33 @@ function fbText(){var v=function(i){return $(i).value.trim()||"-"};
 return "Dhenlux feedback\nShop: "+v("fs")+"\nOwner: "+v("fo")+"\nEase of use: "+v("fe")+"\nLiked most: "+v("fl")+"\nMissing/annoying: "+v("fm")+"\nWould use daily: "+v("fu")+"\nProblems: "+ck("k1")+"\nTracks orders with: "+ck("k2")+"\nWould pay extra for: "+ck("k3")}
 $("fw").onclick=function(){window.open("https://wa.me/"+WA_NUMBER+"?text="+encodeURIComponent(fbText()),"_blank")};
 $("fc").onclick=function(){var t=fbText();try{navigator.clipboard.writeText(t).then(function(){$("fmsg").textContent="Copied. Paste it into a message to us."},function(){$("fmsg").textContent="Could not copy. Please use the WhatsApp button."})}catch(e){$("fmsg").textContent="Could not copy. Please use the WhatsApp button."}};
+/* Lock-screen reminders (web push). Sends only order number + pickup time to the server. */
+var pushT=null;
+function pushB64(k){var p="=".repeat((4-k.length%4)%4),b=(k+p).replace(/-/g,"+").replace(/_/g,"/"),r=atob(b),o=new Uint8Array(r.length);for(var i=0;i<r.length;i++)o[i]=r.charCodeAt(i);return o}
+function pushSupported(){return "serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window}
+function pushList(){var now=Date.now(),list=[];
+S.orders.forEach(function(o){if(o.status===3||!o.due)return;var d=dueAt(o);if(!d)return;var p=o.due.split("-"),day=new Date(+p[0],+p[1]-1,+p[2]-1,9,0,0);
+if(day.getTime()>now+5000)list.push({id:"o"+o.id+"|d1",kind:"d1",oid:String(o.id),at:day.getTime()});
+if(d.getTime()>now+5000)list.push({id:"o"+o.id+"|0",kind:"0",oid:String(o.id),at:d.getTime()})});
+return list.slice(0,200)}
+async function pushSync(extra){try{var reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription();if(!sub)return false;
+var al=extra===false?[]:pushList();if(extra&&extra.length)al=al.concat(extra);
+var r=await fetch("/api/sync",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({subscription:sub.toJSON(),alarms:al})});return r.ok}catch(e){return false}}
+window.pushQueue=function(){if(!S.push||!pushSupported())return;clearTimeout(pushT);pushT=setTimeout(function(){pushSync()},1500)};
+function pushUI(){var b=$("pushBtn"),t=$("pushT");if(!b)return;b.textContent=S.push?"📲 Lock-screen reminders are on":"📲 Turn on lock-screen reminders";t.style.display=S.push?"":"none"}
+async function pushEnable(){
+if(!pushSupported()){alert("This browser cannot send lock-screen reminders. On an iPhone, first add Dhenlux to your Home Screen (Share, then Add to Home Screen) and open it from there. On Android, use Chrome.");return}
+try{var perm=await Notification.requestPermission();if(perm!=="granted"){alert("Reminders are blocked. Allow notifications for this site in your browser settings, then tap this button again.");return}
+var reg=await navigator.serviceWorker.register("sw.js");await navigator.serviceWorker.ready;
+var cfg=await (await fetch("/api/sync")).json();if(!cfg||!cfg.key)throw new Error("The reminder service is not set up yet.");
+var sub=await reg.pushManager.getSubscription();if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:pushB64(cfg.key)});
+S.push=true;save();var ok=await pushSync();pushUI();
+alert(ok?"Lock-screen reminders are on. Tap the test button to check them.":"Reminders are on, but the server could not be reached. They will sync when you are online.")}
+catch(e){alert("Could not turn on reminders. "+e)}}
+async function pushDisable(){try{await pushSync(false);var reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription();if(sub)await sub.unsubscribe()}catch(e){}S.push=false;save();pushUI()}
+if($("pushBtn")){$("pushBtn").onclick=function(){if(S.push){if(confirm("Turn off lock-screen reminders?"))pushDisable()}else pushEnable()};
+$("pushT").onclick=async function(){var ok=await pushSync([{id:"t|"+Date.now(),kind:"t",oid:"0",at:Date.now()+60000}]);alert(ok?"A test reminder will arrive in about a minute. You can lock your phone now.":"Could not reach the reminder server.")};
+pushUI();if(S.push&&pushSupported()){setTimeout(function(){pushSync()},3000)}}
 function render(){renderOrders();renderCart();renderPrices()}
 load();setDue();$("today").textContent=new Date().toLocaleDateString("en-NG",{weekday:"long",day:"numeric",month:"long"});render();
 
